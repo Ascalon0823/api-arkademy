@@ -2,53 +2,68 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"crypto/sha256"
+	"encoding/hex"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Sale struct {
-	Item     string  `bson:"item"`
-	Price    float64 `bson:"price"`
-	Quantity int     `bson:"quantity"`
-}
+var (
+	client         *mongo.Client
+	userCollection *mongo.Collection
+	jwtKey         = []byte(os.Getenv("JWT_SECRET"))
+)
 
-func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading Environment")
-	}
+func ConnectDB() *mongo.Client {
 	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_URI_LOCAL"))
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() {
-		if err = client.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}()
-
-	var result bson.M
-	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Decode(&result); err != nil {
-		panic(err)
-	}
-	var results []Sale
-	coll := client.Database("mongodbVSCodePlaygroundDB").Collection("sales")
-	cursor, err := coll.Find(context.TODO(), bson.D{})
+	err = client.Ping(context.TODO(), nil)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	if err = cursor.All(context.TODO(), &results); err != nil {
-		panic(err)
+
+	log.Println("Connected to MongoDB!")
+	userCollection = client.Database("arkademy").Collection("users")
+	return client
+}
+
+func HashPassword(password string) string {
+	hash := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(hash[:])
+}
+
+func RegisterUser(c *gin.Context) {
+	var user User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
-	for _, result := range results {
-		fmt.Printf("%+v\n", result)
+	user.Password = HashPassword(user.Password)
+	_, err := userCollection.InsertOne(context.TODO(), user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
 	}
-	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
+	c.JSON(http.StatusOK, gin.H{"message": "User created successfully"})
+}
+func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading Environment")
+	}
+	client = ConnectDB()
+	defer client.Disconnect(context.Background())
+	router := gin.Default()
+
+	router.POST("/register", RegisterUser)
+	router.Run(":8080")
 }
