@@ -130,6 +130,7 @@ func getUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 func main() {
+	log.Println("Server begin")
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading Environment")
