@@ -12,20 +12,19 @@ on:
 jobs:
 
   build:
+
     runs-on: self-hosted
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: |
-        mkdir -p ./dist
-        go build -o ./dist/
-    - name: Env
-      run: |
-        touch .env
-        echo MONGO_URI_LOCAL=${{ secrets.MONGO_URI_LOCAL }} >> .env
-        echo JWT_SECRET_LOCAL=${{secrets.JWT_SECRET_LOCAL}} >> .env
-        cat .env
-    - name: Run
-      run: |
-        killall api-arkademy || true
-        nohup ./dist/api-arkademy &
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      env:
+        MONGO_URI_LOCAL: ${{secrets.MONGO_URI_LOCAL}}
+        JWT_SECRET: ${{secrets.JWT_SECRET_LOCAL}}
+      run: docker build . --file Dockerfile --tag image-api-arkademy
+    - name: Remove dangling image
+      run: docker image prune -f
+    - name: Restart docker container
+      run: | 
+        docker stop container-api-arkademy || true
+        docker run -d -p 1027:1027 --rm --name container-api-arkademy image-api-arkademy
