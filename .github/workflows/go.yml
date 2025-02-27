@@ -27,4 +27,4 @@ jobs:
     - name: Restart docker container
       run: | 
         docker stop container-api-arkademy || true
-        docker run -d -p 8080:8080 --rm --name container-api-arkademy image-api-arkademy
+        docker run -d -p 8080:8080 --name container-api-arkademy image-api-arkademy
