@@ -132,7 +132,7 @@ func getUser(c *gin.Context) {
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Error loading Environment")
+		log.Fatal("Error loading Environment")
 	}
 	client = connectDB()
 	defer client.Disconnect(context.Background())

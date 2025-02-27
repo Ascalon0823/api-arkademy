@@ -11,9 +11,10 @@ RUN go build -v -o /usr/local/bin/app
 FROM alpine
 
 WORKDIR /usr/src/app
-
-ENV MONGO_URI_LOCAL=${MONGO_URI_LOCAL}
-ENV JWT_SECRET=${JWT_SECRET}
+RUN touch .env && \
+    echo "MONGO_URI_LOCAL=${MONGO_URI_LOCAL}" >> .env && \
+    echo "JWT_SECRET_LOCAL=${JWT_SECRET}" >> .env && \
+    cat .env
 COPY --from=builder /usr/local/bin/app /usr/local/bin/app
 
 EXPOSE 8080
