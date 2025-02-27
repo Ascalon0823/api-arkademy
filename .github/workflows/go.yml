@@ -19,8 +19,13 @@ jobs:
       run: |
         mkdir -p ./dist
         go build -o ./dist/
+    - name: Env
+      run: |
+        touch .env
+        echo MONGO_URI_LOCAL=${{ secrets.MONGO_URI_LOCAL }} >> .env
+        echo JWT_SECRET_LOCAL=${{secrets.JWT_SECRET_LOCAL}} >> .env
+        cat .env
     - name: Run
       run: |
         killall api-arkademy || true
         ./dist/api-arkademy
-        
