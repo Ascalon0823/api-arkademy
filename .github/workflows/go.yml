@@ -8,13 +8,13 @@ on:
     branches: [ "cicd","main" ]
   pull_request:
     branches: [ "main" ]
-
+env:
+    MONGO_URI_LOCAL: ${{secrets.MONGO_URI_LOCAL}}
+    JWT_SECRET: ${{secrets.JWT_SECRET_LOCAL}}
 jobs:
 
   build:
-
     runs-on: self-hosted
-
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
@@ -22,9 +22,6 @@ jobs:
     - name: Remove dangling image
       run: docker image prune -f
     - name: Restart docker container
-      env:
-        MONGO_URI_LOCAL: ${{secrets.MONGO_URI_LOCAL}}
-        JWT_SECRET: ${{secrets.JWT_SECRET_LOCAL}}
       run: | 
         docker stop container-api-arkademy || true
         docker run -d -p 8080:8080 --name container-api-arkademy image-api-arkademy
