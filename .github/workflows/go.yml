@@ -17,11 +17,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Login into Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build the Docker image
       env:
         MONGO_URI_LOCAL: ${{secrets.MONGO_URI_LOCAL}}
