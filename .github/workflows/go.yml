@@ -28,4 +28,4 @@ jobs:
     - name: Run
       run: |
         killall api-arkademy || true
-        ./dist/api-arkademy
+        nohup ./dist/api-arkademy &
