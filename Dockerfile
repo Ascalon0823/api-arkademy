@@ -18,6 +18,5 @@ RUN touch .env && \
 COPY --from=builder /usr/local/bin/app /usr/local/bin/app
 
 EXPOSE 8080
-EXPOSE 27017
 
 CMD ["app"]
