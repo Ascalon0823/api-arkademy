@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -90,6 +92,10 @@ func registerUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
+	user.PlayerRecord = PlayerRecord{
+		CreationTime: primitive.NewDateTimeFromTime(time.Now().UTC()),
+		Characters:   make([]CharacterRecord, 0),
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "User created successfully"})
 }
 
@@ -129,6 +135,43 @@ func getUser(c *gin.Context) {
 	user.Password = ""
 	c.JSON(http.StatusOK, user)
 }
+
+func createCharacterForUser(c *gin.Context) {
+	token, err := authenticateToken(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+	username := claims["username"].(string)
+	var user User
+	err = userCollection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		return
+	}
+	var characterRecord CharacterRecord
+	if err := c.ShouldBindJSON(&characterRecord); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	characterRecord.CreationTime = primitive.NewDateTimeFromTime(time.Now().UTC())
+	if user.PlayerRecord.Characters == nil {
+		user.PlayerRecord.Characters = make([]CharacterRecord, 0)
+	}
+
+	user.PlayerRecord.Characters = append(user.PlayerRecord.Characters, characterRecord)
+	_, err = userCollection.UpdateOne(context.TODO(), bson.D{{"_id", user.ID}}, bson.D{{"$set", user}})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, user)
+}
 func main() {
 	log.Println("Server begin")
 	err := godotenv.Load()
@@ -142,5 +185,6 @@ func main() {
 	router.GET("/user", getUser)
 	router.POST("/register", registerUser)
 	router.POST("/login", loginUser)
-	router.Run(":8080")
+	router.POST("/createCharacter", createCharacterForUser)
+	router.Run(fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")))
 }
