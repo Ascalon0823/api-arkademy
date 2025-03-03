@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -99,58 +98,18 @@ func registerUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User created successfully"})
 }
 
-func authenticateToken(c *gin.Context) (*jwt.Token, error) {
-	tokenString := c.GetHeader("Authorization")
-	if tokenString == "" {
-		return nil, errors.New("Authorization header is required")
-	}
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("Invalid signing method")
-		}
-		return jwtKey, nil
-	})
-	return token, err
-}
-
 func getUser(c *gin.Context) {
-	token, err := authenticateToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		return
-	}
-	username := claims["username"].(string)
-	var user User
-	err = userCollection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
-	if err != nil {
+	user, exists := c.Get("user")
+	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
 		return
 	}
-	user.Password = ""
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, user.(User))
 }
 
 func createCharacterForUser(c *gin.Context) {
-	token, err := authenticateToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		return
-	}
-	username := claims["username"].(string)
-	var user User
-	err = userCollection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
-	if err != nil {
+	userData, exists := c.Get("user")
+	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
 		return
 	}
@@ -159,13 +118,14 @@ func createCharacterForUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	user := userData.(User)
 	characterRecord.CreationTime = primitive.NewDateTimeFromTime(time.Now().UTC())
 	if user.PlayerRecord.Characters == nil {
 		user.PlayerRecord.Characters = make([]CharacterRecord, 0)
 	}
 
 	user.PlayerRecord.Characters = append(user.PlayerRecord.Characters, characterRecord)
-	_, err = userCollection.UpdateOne(context.TODO(), bson.D{{"_id", user.ID}}, bson.D{{"$set", user}})
+	_, err := userCollection.UpdateOne(context.TODO(), bson.D{{"_id", user.ID}}, bson.D{{"$set", user}})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -182,9 +142,14 @@ func main() {
 	defer client.Disconnect(context.Background())
 	router := gin.Default()
 
-	router.GET("/user", getUser)
 	router.POST("/register", registerUser)
 	router.POST("/login", loginUser)
-	router.POST("/createCharacter", createCharacterForUser)
+
+	protected := router.Group("/")
+	protected.Use(AuthMiddleware())
+	{
+		protected.GET("/user", getUser)
+		protected.POST("/createCharacter", createCharacterForUser)
+	}
 	router.Run(fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")))
 }

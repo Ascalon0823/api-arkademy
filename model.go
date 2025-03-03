@@ -18,7 +18,6 @@ type PlayerRecord struct {
 }
 
 type CharacterRecord struct {
-	DisplayName    string
 	CreationTime   primitive.DateTime
 	LastPlayedTime primitive.DateTime
 	Data           primitive.M
