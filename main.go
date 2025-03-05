@@ -2,20 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -43,135 +35,6 @@ func connectDB() *mongo.Client {
 	return client
 }
 
-func hashPassword(password string) string {
-	hash := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(hash[:])
-}
-
-func generateToken(username string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": username,
-		"exp":      time.Now().Add(time.Hour * 72).Unix(),
-	})
-	return token.SignedString(jwtKey)
-}
-
-func loginUser(c *gin.Context) {
-	var user User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	var dbUser User
-	err := userCollection.FindOne(context.TODO(), bson.M{"username": user.Username}).Decode(&dbUser)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid username or password"})
-		return
-	}
-	if hashPassword(user.Password) != dbUser.Password {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid username or password"})
-		return
-	}
-	token, err := generateToken(user.Username)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"token": token})
-}
-
-func registerUser(c *gin.Context) {
-	var user User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	user.Password = hashPassword(user.Password)
-	_, err := userCollection.InsertOne(context.TODO(), user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
-	}
-	user.PlayerRecord = PlayerRecord{
-		CreationTime: primitive.NewDateTimeFromTime(time.Now().UTC()),
-		Characters:   make([]CharacterRecord, 0),
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "User created successfully"})
-}
-
-func authenticateToken(c *gin.Context) (*jwt.Token, error) {
-	tokenString := c.GetHeader("Authorization")
-	if tokenString == "" {
-		return nil, errors.New("Authorization header is required")
-	}
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("Invalid signing method")
-		}
-		return jwtKey, nil
-	})
-	return token, err
-}
-
-func getUser(c *gin.Context) {
-	token, err := authenticateToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		return
-	}
-	username := claims["username"].(string)
-	var user User
-	err = userCollection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
-		return
-	}
-	user.Password = ""
-	c.JSON(http.StatusOK, user)
-}
-
-func createCharacterForUser(c *gin.Context) {
-	token, err := authenticateToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		return
-	}
-	username := claims["username"].(string)
-	var user User
-	err = userCollection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
-		return
-	}
-	var characterRecord CharacterRecord
-	if err := c.ShouldBindJSON(&characterRecord); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	characterRecord.CreationTime = primitive.NewDateTimeFromTime(time.Now().UTC())
-	if user.PlayerRecord.Characters == nil {
-		user.PlayerRecord.Characters = make([]CharacterRecord, 0)
-	}
-
-	user.PlayerRecord.Characters = append(user.PlayerRecord.Characters, characterRecord)
-	_, err = userCollection.UpdateOne(context.TODO(), bson.D{{"_id", user.ID}}, bson.D{{"$set", user}})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, user)
-}
 func main() {
 	log.Println("Server begin")
 	err := godotenv.Load()
@@ -182,9 +45,14 @@ func main() {
 	defer client.Disconnect(context.Background())
 	router := gin.Default()
 
-	router.GET("/user", getUser)
 	router.POST("/register", registerUser)
 	router.POST("/login", loginUser)
-	router.POST("/createCharacter", createCharacterForUser)
+
+	protected := router.Group("/")
+	protected.Use(AuthMiddleware())
+	{
+		protected.GET("/user", getUser)
+		protected.PATCH("/player", updatePlayer)
+	}
 	router.Run(fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")))
 }
