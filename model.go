@@ -12,13 +12,10 @@ type User struct {
 }
 
 type PlayerRecord struct {
-	CreationTime   primitive.DateTime
-	LastPlayedTime primitive.DateTime
-	Characters     []CharacterRecord
+	Characters []CharacterRecord
 }
 
 type CharacterRecord struct {
-	DisplayName    string
 	CreationTime   primitive.DateTime
 	LastPlayedTime primitive.DateTime
 	Data           primitive.M
