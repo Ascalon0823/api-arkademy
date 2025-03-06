@@ -44,7 +44,7 @@ func main() {
 	client = connectDB()
 	defer client.Disconnect(context.Background())
 	router := gin.Default()
-
+	router.Use(CORSMiddleware())
 	router.POST("/register", registerUser)
 	router.POST("/login", loginUser)
 
