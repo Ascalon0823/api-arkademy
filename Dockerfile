@@ -12,7 +12,7 @@ FROM alpine
 
 WORKDIR /usr/src/app
 RUN touch .env && \
-    echo MONGO_URI=${MONGO_URI_LOCAL} >> .env && \
+    echo MONGO_URI=${MONGO_URI} >> .env && \
     echo JWT_SECRET=${JWT_SECRET} >> .env && \
     echo SERVER_PORT=1027 >> .env && \
     cat .env
