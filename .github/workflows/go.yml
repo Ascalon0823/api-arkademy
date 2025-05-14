@@ -9,8 +9,8 @@ on:
   pull_request:
     branches: [ "main" ]
 env:
-    MONGO_URI_LOCAL: ${{secrets.MONGO_URI_LOCAL}}
-    JWT_SECRET: ${{secrets.JWT_SECRET_LOCAL}}
+    MONGO_URI: ${{secrets.MONGO_URI}}
+    JWT_SECRET: ${{secrets.JWT_SECRET}}
 jobs:
 
   build:
