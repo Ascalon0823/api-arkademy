@@ -19,8 +19,8 @@ var (
 )
 
 func connectDB() *mongo.Client {
-	log.Println(os.Getenv("MONGO_URI_LOCAL"))
-	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_URI_LOCAL"))
+	log.Println(os.Getenv("MONGO_URI"))
+	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_URI"))
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		log.Fatal(err)

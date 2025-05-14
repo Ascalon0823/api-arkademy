@@ -24,7 +24,7 @@ jobs:
     - name: Restart docker container
       run: | 
         docker stop container-api-arkademy || true
-        docker run --rm -d -p 8080:8080 \
-        -e MONGO_URI_LOCAL=${MONGO_URI_LOCAL} \
+        docker run --rm -d -p 1027:1027 \
+        -e MONGO_URI=${MONGO_URI} \
         -e JWT_SECRET=${JWT_SECRET} \
         --name container-api-arkademy image-api-arkademy
