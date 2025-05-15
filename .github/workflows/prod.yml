@@ -1,0 +1,23 @@
+name: Prod
+
+on: 
+ push:
+  branches:
+    - main
+
+env:
+    MONGO_URI: ${{secrets.MONGO_URI}}
+    JWT_SECRET: ${{secrets.JWT_SECRET}}
+
+jobs:
+
+  build:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag img-api-arkademy-prod
+    - name: Tag the Docker image
+      run: docker tag img-api-arkademy-prod asia-southeast1-docker.pkg.dev/arkademy-453306/api-arkademy/img-api-arkademy
+    - name: Push Docker Image
+      run: docker push asia-southeast1-docker.pkg.dev/arkademy-453306/api-arkademy/img-api-arkademy
