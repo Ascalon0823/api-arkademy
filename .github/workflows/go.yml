@@ -3,13 +3,9 @@
 
 name: Go
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: push
 env:
-    MONGO_URI: ${{secrets.MONGO_URI}}
+    MONGO_URI: ${{secrets.MONGO_URI_LOCAL}}
     JWT_SECRET: ${{secrets.JWT_SECRET}}
 jobs:
 
