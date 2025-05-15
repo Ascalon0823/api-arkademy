@@ -22,6 +22,8 @@ jobs:
       with:
         project_id: 'arkademy-453306'
         workload_identity_provider: 'projects/202926652276/locations/global/workloadIdentityPools/github/providers/my-repo'
+    - name: Configure Docker for Artifact Registry
+      run: gcloud --quiet auth configure-docker asia-southeast1-docker.pkg.dev
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag img-api-arkademy-prod
     - name: Tag the Docker image
