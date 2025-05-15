@@ -33,3 +33,5 @@ jobs:
       run: docker tag img-api-arkademy-prod asia-southeast1-docker.pkg.dev/arkademy-453306/api-arkademy/img-api-arkademy
     - name: Push Docker Image
       run: docker push asia-southeast1-docker.pkg.dev/arkademy-453306/api-arkademy/img-api-arkademy
+    - name: Submit revision
+      run: gcloud run deploy api-arkademy --image asia-southeast1-docker.pkg.dev/arkademy-453306/api-arkademy/img-api-arkademy:latest --region asia-southeast1
